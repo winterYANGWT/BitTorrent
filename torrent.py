@@ -1,21 +1,41 @@
 import random
 import string
 from hashlib import sha1
+from bencode import Parser 
 
 class Torrent:
     def __init__(self, path):
         self.filepath = path
+        self.parser = Parser()
+        self.raw_content = ''
         self.torrent_dict = {}
         self.announce = ""
         self.announce_list = []
+        self.name = ""
         self.info = {}
+        self.files = {}
+        self.is_multi_file = False
+        self.get_value()
+
 
     def get_value(self):
-        self.torrent_dict = decode(filepath)
-        self.announce = self.torrent_dict[b"announce"]
-        if self.torrent_dict.get(b"announce_list") is not None :
-            self.announce_list = self.torrent_dict[b"announce_list"]
-        self.info = self.torrent_dict[b"info"]
+        with open(self.filepath, 'rb') as f:
+            self.raw_content = f.read()
+        self.torrent_dict = self.parser.decode(self.raw_content)
+        if self.torrent_dict.get(b'announce_list') is not None :
+            self.announce_list = self.torrent_dict[b'announce_list']
+        if self.torrent_dict.get(b'announce') is None :
+            self.announce = self.torrent_dict[b'announce-list'][0][0]
+        else:
+             self.announce = self.torrent_dict[b'announce']
+
+        #self.name = self.torrent_dict[b'name']
+        self.info = self.torrent_dict[b'info']
+        if self.info.get(b'files') is not None:
+            self.is_multi_file = True
+            self.files = self.info[b'files']
+
+        print(self.announce)
 
     def gen_request_paras(self):
         '''
@@ -27,7 +47,8 @@ class Torrent:
         paras={}
 
         #bencode?
-        paras["info_hash"] =sha1(bencode(self.info)).digest()
+        paras["announce"] = bytes.decode(self.announce)
+        paras["info_hash"] =sha1(self.parser.encode(self.info)).hexdigest()
         paras["peer_id"] = self.gen_peer_id()
         paras["port"] = "6881"
         paras["uploaded"] = "0"
@@ -35,6 +56,7 @@ class Torrent:
         paras["left"] = self.info[b'length']
         paras["event"] = "started"
         #paras["numwant"] = "" 
+        print(paras)
 
         return paras
 
@@ -55,4 +77,6 @@ class Torrent:
         return hashes
 
 
-    
+if __name__ == "__main__":
+    torrent = Torrent('./test/ubuntu-20.10-desktop-amd64.iso.torrent')  
+    torrent.gen_request_paras()
