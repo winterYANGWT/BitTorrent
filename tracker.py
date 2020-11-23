@@ -40,13 +40,17 @@ class Tracker:
         返回一个list, [[peer_ip, peer_id, peer_port], [peer_ip, peer_id, peer_port], ......]
         '''
         peers = []
+
         coroutine = self.http_request()
         loop = asyncio.get_event_loop()
         task = loop.create_task(coroutine)
         loop.run_until_complete(task)
+
         parser = Parser()
         result = parser.decode(task.result())
-        print(result[b'interval'])
+
+        #print(result[b'interval'])
+        
         for item in result[b'peers']:
             ip = ipaddress.ip_address(bytes.decode(item[b'ip']))
             peers.append([ip, item[b'peer id'], item[b'port']])

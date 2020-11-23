@@ -21,16 +21,19 @@ class Torrent:
     def get_value(self):
         with open(self.filepath, 'rb') as f:
             self.raw_content = f.read()
+            
         self.torrent_dict = self.parser.decode(self.raw_content)
+
         if self.torrent_dict.get(b'announce_list') is not None :
             self.announce_list = self.torrent_dict[b'announce_list']
+
         if self.torrent_dict.get(b'announce') is None :
             self.announce = self.torrent_dict[b'announce-list'][0][0]
         else:
              self.announce = self.torrent_dict[b'announce']
 
-        #self.name = self.torrent_dict[b'name']
         self.info = self.torrent_dict[b'info']
+
         if self.info.get(b'files') is not None:
             self.is_multi_file = True
             self.files = self.info[b'files']
@@ -46,7 +49,6 @@ class Torrent:
         '''
         paras={}
 
-        #bencode?
         paras["announce"] = bytes.decode(self.announce)
         paras["info_hash"] =sha1(self.parser.encode(self.info)).hexdigest()
         paras["peer_id"] = self.gen_peer_id()
@@ -55,7 +57,7 @@ class Torrent:
         paras["downloaded"] = "0"
         paras["left"] = self.info[b'length']
         paras["event"] = "started"
-        #paras["numwant"] = "" 
+
         print(paras)
 
         return paras
