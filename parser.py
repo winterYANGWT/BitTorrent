@@ -119,10 +119,9 @@ class Encoder(object):
 
             
 if __name__ == '__main__':
-    with open('ubuntu.torrent','rb') as f:
+    with open('./test/ubuntu-20.10-desktop-amd64.iso.torrent','rb') as f:
         dec=Parser()
         bstr=f.read()
         d=dec.decode(bstr)
         b=dec.encode(d)
         print(b==bstr)
-
