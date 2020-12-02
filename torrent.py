@@ -1,7 +1,7 @@
 import random
 import string
 from hashlib import sha1
-from bencode import Parser 
+from bencode import Parser
 
 class Torrent:
     def __init__(self, path):
@@ -81,4 +81,5 @@ class Torrent:
 
 if __name__ == "__main__":
     torrent = Torrent('./test/ubuntu-20.10-desktop-amd64.iso.torrent')  
-    torrent.gen_request_paras()
+    print(torrent.info.keys())
+    #torrent.gen_request_paras()

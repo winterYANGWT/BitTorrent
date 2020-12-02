@@ -1,7 +1,6 @@
 import json
 import base64
 
-
 class Parser(object):
     def __init__(self):
         super().__init__()
