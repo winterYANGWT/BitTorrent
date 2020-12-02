@@ -241,15 +241,17 @@ if __name__ == "__main__":
     path = './test/ubuntu-20.10-desktop-amd64.iso.torrent'
     torrent = Torrent(path)
     tracker = Tracker(torrent)
+    
     loop = asyncio.get_event_loop()
     task = loop.create_task(tracker.get_peers())
     loop.run_until_complete(task)
     peers = task.result()
     peer = peers[0]
-
+    
     print(peers)
+    print(tracker.info_hash)
 
-    connection = Connection(str(peer[0]), peer[2], tracker.info_hash, peer[1])
-    task = loop.create_task(connection.handshake())
-    loop.run_until_complete(task)
-    print(task.result()) 
+    # connection = Connection(str(peer[0]), peer[2], tracker.info_hash, peer[1])
+    # task = loop.create_task(connection.handshake())
+    # loop.run_until_complete(task)
+    # print(task.result()) 

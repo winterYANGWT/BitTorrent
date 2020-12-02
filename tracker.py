@@ -29,7 +29,7 @@ class Tracker:
         URL += "info_hash="
         self.info_hash = paras["info_hash"]
 
-        for index, _ in enumerate(self.info_hash):
+        for index, _ in enumerate(self.info_hash.hex()):
             if(index % 2 == 0):
                 URL += '%'
             URL += _
