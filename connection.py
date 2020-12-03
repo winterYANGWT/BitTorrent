@@ -3,63 +3,86 @@ from block import Block, Piece
 from message import *
 
 class Connection:
-    def __init__(self, ip, port, info_hash, peer_id):
+    def __init__(self, ip, port, info_hash, my_id):
         self.ip = ip
         self.port = port
         self.info_hash = info_hash
-        self.peer_id = peer_id
+        self.my_id = my_id
 
         self.am_choking = 1
         self.am_interested = 0
         self.peer_choking = 1
         self.peer_interested = 0
 
+        self.handshake_sucess = False
+        self.download_sucess = False
+
         self.available_pieces = []
         self.bytes_stream = b''
 
-        self.piece = None
+        self.block = None
+
         self.reader = None
         self.writer = None
 
 
     async def connect(self):
-        self.reader, self.writer = await asyncio.open_connection(self.ip, self.port)
+        try:
+            self.reader, self.writer = await asyncio.open_connection(self.ip, self.port)
+            return 1
+        except Exception as e:
+            print("Failed to connect")
+            return 0
 
     async def handshake(self):
-        #await self.connect()
-        message = HandShakeMessage(HANDSHAKE, self.info_hash, self.peer_id)
-        print(message.gen_string())
-        return 
-        await self.write(message.gen_string())
-        message = await self.read_a_message()
-        if message.typeID == HANDSHAKE:
-            return True
-        else:
+        print("in handshake")
+        messages = []
+        state = await self.connect()
+        if state == 0:
             return False
+        message = HandShakeMessage(HANDSHAKE, self.info_hash, self.my_id)
+        print(message.gen_string())
+        await self.write(message.gen_string())
+        
+        message = await self.read_a_message()
+        while message != None and message.typeID != KEEPALIVE:
+            messages.append(message)
+            message = await self.read_a_message()
+        for message in messages:
+            print("message:"+str(message.typeID))
+            self.handle_message(message)
+        if self.handshake_sucess == 1:
+            return True
+        return False
 
     async def read_a_message(self):
         while(len(self.bytes_stream) < 4):
-                await self.read()
+                data = await self.read()
+                if len(data) == 0:
+                    return None
+                self.bytes_stream += data
 
         if self.bytes_stream[0:4] == b'\x13Bit':
             while(len(self.bytes_stream) < 68):
-                await self.read()  
+                self.bytes_stream += await self.read()  
             pstr = self.bytes_stream[0:20]
             info_hash = self.bytes_stream[28:48]
-            peer_id = self.bytes_stream[48:68]
-            message = HandShakeMessage(HANDSHAKE, info_hash, peer_id, pstr)
+            my_id = self.bytes_stream[48:68]
+            message = HandShakeMessage(HANDSHAKE, info_hash, my_id, pstr)
             self.bytes_stream = self.bytes_stream[68:]
             return message
 
-        if self.bytes_stream[0:4] == b'0000':
+        if self.bytes_stream[0:4] == b'\x00\x00\x00\x00':
             self.bytes_stream = self.bytes_stream[4:]
             return KeepAliveMessage()
 
-        message_length = struct.unpack('>I', self.bytes_stream[0:4])
+        message_length = struct.unpack('>I', self.bytes_stream[0:4])[0]
         while(len(self.bytes_stream) < 4 + message_length):
-            await self.read()
+            print(len(self.bytes_stream))
+            data = await self.read()
+            self.bytes_stream += data
         
-        type_ID = int(self.bytes_stream[5])
+        type_ID = int(self.bytes_stream[4])
 
         if type_ID in [CHOKE, UNCHOKE, INTERESTED, NOTINTERESTED]:
             self.bytes_stream = self.bytes_stream[5:]
@@ -91,146 +114,103 @@ class Connection:
             self.bytes_stream = self.bytes_stream[message_length+4:]
             return CancelMessage(type_ID, index, begin, length)
 
-    # async def read_messages(self):
-    #     messages = []
-    #     bytes_stream = b''
+        if type_ID == EXTENSION:
+            info = self.bytes_stream[5:message_length+4]
+            self.bytes_stream = self.bytes_stream[message_length+4:]
+            return ExtensionMessage(type_ID, info)
 
-    #     while(True):
-    #         bytes_stream += await self.reader.read(1024)
+    def handle_message(self, message):
 
-    #         if(len(bytes_stream) < 5):
-    #             continue
+        typeID = message.typeID
 
-    #         if bytes_stream[0:4] == b'\x13BitT':
-    #             if(len(bytes_stream) < 68):
-    #                 continue
-    #             else:
-    #                 handshakemessage = bytes_stream[0:68]
-    #                 pstr = handshakemessage[0:20]
-    #                 info_hash = handshakemessage[28:48]
-    #                 peer_id = handshakemessage[48:68]
-    #                 message = HandShakeMessage(HANDSHAKE, info_hash, peer_id, pstr)
-    #                 messages.append(message)
-    #                 bytes_stream = bytes_stream[68:]
-            
-    #         if bytes_stream[0:4] == b'0000':
-    #             message = KeepAliveMessage()
-    #             messages.append(message)
-    #             bytes_stream = bytes_stream[4:]
-
-    #         message_length = struct.unpack('>I', bytes_stream[0:4])[0]
-
-    #         if len(bytes_stream) < message_length + 4:
-    #             continue
-
-    #         type_ID = int(bytes_stream[5])
-
-    #         if type_ID in [CHOKE, UNCHOKE, INTERESTED, NOTINTERESTED]:
-    #             message = StateMessage(type_ID)
-    #             messages.append(message)
-    #             bytes_stream = bytes_stream[5:]
-    #             continue
-
-    #         if type_ID == HaveMessage:
-    #             index = struct.unpack('>I', bytes_stream[5:9])[0]
-    #             message = HaveMessage(type_ID, index)
-    #             messages.append(message)
-    #             bytes_stream = bytes_stream[message_length+4:]
-    #             continue
-            
-    #         if type_ID == BITFIELD:
-    #             bitfield = bytes_stream[5:message_length+4]
-    #             message = BitFieldMessage(type_ID, bitfield)
-    #             messages.append(message)
-    #             bytes_stream = bytes_stream[message_length+4:]
-    #             continue
-
-    #         if type_ID == REQUEST:
-    #             index, begin, length = struct.unpack('>III', bytes_stream[5:17])
-    #             message = RequestMessage(type_ID, index, begin, length)
-    #             messages.append(message)
-    #             bytes_stream = bytes_stream[message_length+4:]
-    #             continue
-                
-    #         if type_ID == PIECE:
-    #             index, begin = struct.unpack('>II', bytes_stream[5:13]) 
-    #             block = bytes_stream[13:message_length+4]
-    #             message = PieceMessage(type_ID, index, begin, block)
-    #             messages.append(message)
-    #             bytes_stream = bytes_stream[message_length+4:]
-    #             continue
-
-    #         if type_ID == CANCEL:
-    #             index, begin, length = struct.unpack(">III", bytes_stream[5:17])
-    #             message = CancelMessage(type_ID, index, begin, length)
-    #             messages.append(message)
-    #             bytes_stream = bytes_stream[message_length+4:]
+        if typeID == KEEPALIVE:
+            return
         
-    #     return messages
+        if typeID == CHOKE:
+            self.am_choking = 1
+        
+        if typeID == UNCHOKE:
+            self.am_choking = 0
 
-    async def scan_messages(self, messages):
-        num = len(messages)
+        if typeID == INTERESTED:
+            self.am_interested = 1
+        
+        if typeID == NOTINTERESTED:
+            self.am_interested = 0
+        
+        if typeID == HAVE:
+            self.available_pieces.append(message.index)
 
-        while num>0:
-            message = messages[0]
-            typeID = message.typeID
+        if typeID == BITFIELD:
+            bitarray = message.bitarray
+            for i in range(len(message.bitarray)):
+                if bitarray[i]:
+                    self.available_pieces.append(i)
 
-            if typeID == KEEPALIVE:
-                continue
-            
-            if typeID == CHOKE:
-                self.peer_choking = 1
-            
-            if typeID == UNCHOKE:
-                self.peer_choking = 0
+        if typeID == REQUEST:
+            pass
 
-            # if typeID == INTERESTED:
-            #     self.peer_interested = 1
-            
-            # if typeID == NOTINTERESTED:
-            #     self.peer_interested = 0
-            
-            if typeID == HAVE:
-                self.available_pieces.append(message.index)
+        if typeID == PIECE:
+            self.block = Block(message.index, message.begin, len(message.content))
+            self.block.content = message.content
 
-            if typeID == BITFIELD:
-                bitarray = message.bitarray
-                for i in range(len(message.bitarray)):
-                    if bitarray[i]:
-                        self.available_pieces.append(i)
+        if typeID == CANCEL:
+            pass
 
-            if typeID == REQUEST:
-                pass
-
-            if typeID == PIECE:
-                for block in self.piece.blocks:
-                    if block.offset == message.begin:
-                        block.content = message.content
-                        self.piece.downloaded_blocks.append[block]
-                        if len(self.piece.downloaded_blocks) == len(self.piece.blocks):
-                            self.piece
-
-            if typeID == CANCEL:
-                pass
-
-            if typeID == HANDSHAKE:
-                if(message.pstr != b'\x13BitTorrent protocol' 
-                    and message.info_hash != self.info_hash 
-                    and message.peer_id != self.peer_id):
-                    self.close()
+        if typeID == HANDSHAKE:
+            if(message.pstr != b'\x13BitTorrent protocol' 
+                and message.info_hash != self.info_hash 
+                and message.my_id != self.my_id):
+                self.close()
+            else:
+                self.handshake_sucess = 1
 
 
-    async def download(self, index, length):
-        self.piece = Piece(index, length)
-        for block in self.piece.undownload_blocks:
-            message = RequestMessage(REQUEST, index, block.offset, block.length)
-            self.write(message.gen_string())
+    async def download_a_block(self, index, offset, length):
+        print("in download")
+        await self.handshake()
+        if self.handshake == 0:
+            return self.block
+        messages = []
+        message = StateMessage(INTERESTED)
+        await self.write(message.gen_string())
+        await asyncio.sleep(5)
+        message = await self.read_a_message()
+        while message != None and message.typeID != KEEPALIVE:
+            messages.append(message)
+            message = await self.read_a_message()
+        for message in messages:
+            print("message:"+str(message.typeID))
+            self.handle_message(message)
 
+        if self.am_choking == 1:
+            return self.block
+        message = RequestMessage(REQUEST, index, offset, length)
+        await self.write(message.gen_string())
+    
+        while True:       
+            print("123")
+            message = await self.read_a_message()
+            # if(message == None):
+            #     return self.block
+            print("456")
+            while(message != None and self.download_sucess == False) :
+                print("789")
+                self.handle_message(message)
+                if(message.typeID == PIECE):
+                    self.download_sucess = True
+                    return self.block
+                message = await self.read_a_message() 
+                   
     async def write(self, bytes_string):
         self.writer.write(bytes_string)
 
-    async def read(self, length = 1024):
-        self.bytes_stream += await self.reader.read(length)
+    async def read(self, length = 1024, timeout = 1):
+        try:
+            data = await asyncio.wait_for(self.reader.read(length), timeout)
+            return data
+        except asyncio.TimeoutError as e:
+            return b''
 
     def close(self):
         self.writer.close()
@@ -250,8 +230,10 @@ if __name__ == "__main__":
     
     print(peers)
     print(tracker.info_hash)
-
-    # connection = Connection(str(peer[0]), peer[2], tracker.info_hash, peer[1])
-    # task = loop.create_task(connection.handshake())
-    # loop.run_until_complete(task)
-    # print(task.result()) 
+    print("1")
+    connection = Connection(str(peer[0]), peer[2], tracker.info_hash, b'qwertyuiopasdfghjklz')
+    task = loop.create_task(connection.download_a_block(0, 0, 16348))
+    loop.run_until_complete(task)
+    print("3")
+    if connection.block != None:
+        print(connection.block.content)

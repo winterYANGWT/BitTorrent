@@ -12,6 +12,7 @@ REQUEST = 6
 PIECE = 7
 CANCEL = 8
 HANDSHAKE = 9
+EXTENSION = 20
 
 class Message:
     def __init__(self, typeID):
@@ -25,7 +26,7 @@ class KeepAliveMessage(Message):
         super().__init__(KEEPALIVE)
 
     def gen_string(self):
-        return b'0000'
+        return b'\x00\x00\x00\x00'
 
 class StateMessage(Message):
     def __init__(self, typeID):
@@ -103,9 +104,17 @@ class HandShakeMessage(Message):
         self.peer_id = peer_id
     
     def gen_string(self):
-        return b'' + '19'.encode() + b'BitTorrent protocol' + '00000000'.encode() + self.info_hash.encode() + self.peer_id
+        return b'\x13' + b'BitTorrent protocol' + '00000000'.encode() + self.info_hash + self.peer_id
 
+    def check(self):
+        if self.pstr == b'\x13BitTorrent protocol':
+            return True
 
+class ExtensionMessage(Message):
+    def __init__(self, typeID, info):
+        super().__init__(typeID)
+        self.info = info
+    
 
 
 

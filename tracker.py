@@ -17,10 +17,8 @@ class Tracker:
         self.getURL(self.torrent.gen_request_paras())   
         self.interval = 0
         self.connections = []
-        self.unfinished_pieces = []
-        self.finished_pieces = []
+        self.unfinished_blocks = []
         self.pieces = self.slice_to_pieces()
-        
           
     def getURL(self, paras):
         URL = ''
@@ -85,46 +83,49 @@ class Tracker:
             pieces.append(piece)
             index += 1
         
-        self.unfinished_pieces = [i for i in range(0, index)]
-        self.finished_pieces = [0] * index
+        for piece in pieces:
+            for block in piece.blocks:
+                self.unfinished_blocks.append((piece.index, block.offset, block.length))
         return pieces
     
-    # async def download(self):
-    #     last_update = time.time()
-    #     tasks = []
+    async def download(self):
+        last_update = time.time()
+        tasks = []
 
-    #     while True:
-    #         if len(self.unfinished_pieces) == 0:
-    #             break
-    #         if self.abort == 1:
-    #             break
-    #         cur_time = time.time()
+        while True:
+            if len(self.unfinished_blocks) == 0:
+                break
+            # if self.abort == 1:
+            #     break
+            cur_time = time.time()
 
-    #         if last_update + self.interval < cur_time:
-    #             self.peers = await self.get_peers()
-    #             for peer in self.peers:
-    #                 connection = Connection(peer[0], peer[2], self.info_hash, peer[1])
-    #                 if connection.handshake == True:
-    #                     self.connections.append(connection)
-    #             根据peers生成connections
-    #             调度算法，为每一个connection配备一个piece
-    #             task.append(asyncio.create_task(一个协程,对应的connection下载一个piece))
+            if last_update + self.interval < cur_time:
+                self.peers = await self.get_peers()
+                for peer in self.peers[0:1]:
+                    if len(self.unfinished_blocks) != 0:
+                        index, offset, length = self.unfinished_blocks[0]
+                        connection = Connection(peer[0], peer[2], self.info_hash, self.torrent.gen_peer_id())
+                        self.connections.append(connection)
+                        task = asyncio.create_task(self.connections[-1].download_a_block(index, offset, length))
+                        tasks.append(task)
 
-    #             results = await asyncio.gather(*tasks)
-    #             根据下好的piece更新self.
-    #             self.unfinished_pieces.remove()
-    #         else:
-    #             await asyncio.sleep(1000)
+                results = await asyncio.gather(*tasks)
+
+                for i, block in enumerate(results):
+                    if block:
+                        self.unfinished_blocks.remove((block.index, block.offset, block.length))
+            else:
+                await asyncio.sleep(1000)
         
 if __name__ == "__main__":
     path = './test/ubuntu-20.10-desktop-amd64.iso.torrent'
     torrent = Torrent(path)
     tracker = Tracker(torrent)
-    
-    # loop = asyncio.get_event_loop()
-    # task = loop.create_task(tracker.download())
-    # try:
-    #     loop.run_until_complete(task)
-    # except CancelledError:
-    #     logging.warning('Event loop was canceled')
+
+    loop = asyncio.get_event_loop()
+    task = loop.create_task(tracker.download())
+    try:
+        loop.run_until_complete(task)
+    except CancelledError:
+        logging.warning('Event loop was canceled')
 
