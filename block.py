@@ -8,8 +8,8 @@ class Piece:
         self.info_hash = b''
 
         self.blocks = []
-        self.finished_blocks = []   #[0, 0 ,0 ,0, 0, 0]
-        self.unfinished_blocks = [] #[0, 1, 2, 3, 4, 5]      
+        # self.finished_blocks = []   #[0, 0 ,0 ,0, 0, 0]
+        # self.unfinished_blocks = [] #[0, 1, 2, 3, 4, 5]      
         self.complete = False
         self.slice_to_blocks()
 
@@ -30,10 +30,6 @@ class Piece:
         self.unfinished_blocks = [i for i in range(0, index)]
         self.finished_blocks = [0] * index
     
-    def download_a_block(self):
-        pass
-
-
     def check_hash(self, hash):
         pass
     
