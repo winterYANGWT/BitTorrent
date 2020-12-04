@@ -7,8 +7,10 @@ class Connection:
         self.ip = ip
         self.port = port
         self.info_hash = info_hash
-        self.my_id = my_id
-
+        if(type(my_id) == bytes):
+            self.my_id = my_id
+        if(type(my_id) == str):
+            self.my_id = my_id.encode()
         self.am_choking = 1
         self.am_interested = 0
         self.peer_choking = 1

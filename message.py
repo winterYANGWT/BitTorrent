@@ -104,7 +104,9 @@ class HandShakeMessage(Message):
         self.peer_id = peer_id
     
     def gen_string(self):
-        return b'\x13' + b'BitTorrent protocol' + '00000000'.encode() + self.info_hash + self.peer_id
+        print(self.info_hash)
+        print(self.peer_id)
+        return b'\x13' + b'BitTorrent protocol00000000' + self.info_hash + self.peer_id
 
     def check(self):
         if self.pstr == b'\x13BitTorrent protocol':

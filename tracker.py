@@ -51,7 +51,9 @@ class Tracker:
         peers = []
 
         content = await self.http_request()
-
+        
+        if not content:
+            return None
         parser = Parser()
         result = parser.decode(content)
         
@@ -89,30 +91,39 @@ class Tracker:
         return pieces
     
     async def download(self):
-        last_update = time.time()
+        last_update = 0
         tasks = []
-
+        print("begin")
         while True:
             if len(self.unfinished_blocks) == 0:
                 break
             # if self.abort == 1:
             #     break
             cur_time = time.time()
-
+            print("bbbb")
             if last_update + self.interval < cur_time:
-                self.peers = await self.get_peers()
-                for peer in self.peers[0:1]:
-                    if len(self.unfinished_blocks) != 0:
-                        index, offset, length = self.unfinished_blocks[0]
-                        connection = Connection(peer[0], peer[2], self.info_hash, self.torrent.gen_peer_id())
+                print("cccc")
+                peers = await self.get_peers()
+                if not peers:
+                    continue
+                self.peers = peers
+                last_update = time.time()
+                i = 0
+                for peer in self.peers:
+                    if i < len(self.unfinished_blocks):
+                        index, offset, length = self.unfinished_blocks[i]
+                        i += 1
+                        print(i)
+                        connection = Connection(str(peer[0]), peer[2], self.info_hash, self.torrent.gen_peer_id())
                         self.connections.append(connection)
                         task = asyncio.create_task(self.connections[-1].download_a_block(index, offset, length))
                         tasks.append(task)
-
+                print("start")
                 results = await asyncio.gather(*tasks)
 
                 for i, block in enumerate(results):
                     if block:
+                        print("finished", block.index, block.offset)
                         self.unfinished_blocks.remove((block.index, block.offset, block.length))
             else:
                 await asyncio.sleep(1000)
@@ -124,8 +135,6 @@ if __name__ == "__main__":
 
     loop = asyncio.get_event_loop()
     task = loop.create_task(tracker.download())
-    try:
-        loop.run_until_complete(task)
-    except CancelledError:
-        logging.warning('Event loop was canceled')
 
+    loop.run_until_complete(task)
+   

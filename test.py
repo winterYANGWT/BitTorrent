@@ -1,10 +1,10 @@
 import asyncio
 
-async def tcp_echo_client():
+async def tcp_echo_client(ip, port):
     inter = 0
     shake = 0
     reader, writer = await asyncio.open_connection(
-        '115.196.131.122',16881)
+        ip,port)
 
     #print(f'Send: {message!r}')
     writer.write(b'\x13BitTorrent protocol00000000_\xff\x0e\x1c\x8a\xc4\x14\x86\x03\x10\xbc\xc1\xcbv\xac(\xe9`\xef\xbeqwertyuiopasdfghjklz')
@@ -38,6 +38,21 @@ async def tcp_echo_client():
     print('Close the connection')
     writer.close()
 
-loop =asyncio.get_event_loop()
-#task = asyncio.create_task(tcp_echo_client())
-loop.run_until_complete(tcp_echo_client())
+async def run():
+    args = [('31.208.95.187',51413), ('115.196.131.122',16881), ('94.209.94.127' ,51413)]
+
+    tasks = []
+    for ip, port in args:
+        task = asyncio.create_task(tcp_echo_client(ip, port))
+        tasks.append(task)
+    results = await asyncio.gather(*tasks)
+    return 
+
+if __name__ == "__main__":
+
+
+    loop =asyncio.get_event_loop()
+    loop.run_until_complete(run())
+# loop =asyncio.get_event_loop()
+# #task = asyncio.create_task(tcp_echo_client())
+# loop.run_until_complete(tcp_echo_client())
