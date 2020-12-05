@@ -37,21 +37,23 @@ class Connection:
             return 0
 
     async def handshake(self):
-        print("in handshake")
+        
+        #print("in handshake")
         messages = []
         state = await self.connect()
         if state == 0:
             return False
         message = HandShakeMessage(HANDSHAKE, self.info_hash, self.my_id)
-        print(message.gen_string())
         await self.write(message.gen_string())
-        
-        message = await self.read_a_message()
+        try:
+            message = await self.read_a_message()
+        except:
+            return False
         while message != None and message.typeID != KEEPALIVE:
             messages.append(message)
             message = await self.read_a_message()
         for message in messages:
-            print("message:"+str(message.typeID))
+            #print("message:"+str(message.typeID))
             self.handle_message(message)
         if self.handshake_sucess == 1:
             return True
@@ -59,10 +61,10 @@ class Connection:
 
     async def read_a_message(self):
         while(len(self.bytes_stream) < 4):
-                data = await self.read()
-                if len(data) == 0:
-                    return None
-                self.bytes_stream += data
+            data = await self.read()
+            if len(data) == 0:
+                return None
+            self.bytes_stream += data
 
         if self.bytes_stream[0:4] == b'\x13Bit':
             while(len(self.bytes_stream) < 68):
@@ -80,7 +82,7 @@ class Connection:
 
         message_length = struct.unpack('>I', self.bytes_stream[0:4])[0]
         while(len(self.bytes_stream) < 4 + message_length):
-            print(len(self.bytes_stream))
+            #print(len(self.bytes_stream))
             data = await self.read()
             self.bytes_stream += data
         
@@ -169,9 +171,9 @@ class Connection:
 
 
     async def download_a_block(self, index, offset, length):
-        print("in download")
+        #print("in download")
         await self.handshake()
-        if self.handshake == 0:
+        if self.handshake_sucess == 0:
             return self.block
         messages = []
         message = StateMessage(INTERESTED)
@@ -182,7 +184,7 @@ class Connection:
             messages.append(message)
             message = await self.read_a_message()
         for message in messages:
-            print("message:"+str(message.typeID))
+            #print("message:"+str(message.typeID))
             self.handle_message(message)
 
         if self.am_choking == 1:
@@ -190,20 +192,23 @@ class Connection:
         message = RequestMessage(REQUEST, index, offset, length)
         await self.write(message.gen_string())
     
-        while True:       
-            print("123")
+        for i in range(10):       
+            #print("123")
             message = await self.read_a_message()
             # if(message == None):
             #     return self.block
-            print("456")
+            #print("456")
             while(message != None and self.download_sucess == False) :
-                print("789")
+                #print("789")
+                #print("message123:",message.typeID)
                 self.handle_message(message)
                 if(message.typeID == PIECE):
+                    #print("piece")
                     self.download_sucess = True
                     return self.block
                 message = await self.read_a_message() 
-                   
+        return self.block
+
     async def write(self, bytes_string):
         self.writer.write(bytes_string)
 

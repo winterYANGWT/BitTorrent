@@ -16,6 +16,7 @@ class Tracker:
         self.info_hash = None
         self.getURL(self.torrent.gen_request_paras())   
         self.interval = 0
+        self.peers = []
         self.connections = []
         self.unfinished_blocks = []
         self.pieces = self.slice_to_pieces()
@@ -94,15 +95,20 @@ class Tracker:
         last_update = 0
         tasks = []
         print("begin")
+
+        #循环
         while True:
+            #如果下载完，退出
             if len(self.unfinished_blocks) == 0:
                 break
             # if self.abort == 1:
             #     break
             cur_time = time.time()
             print("bbbb")
-            if last_update + self.interval < cur_time:
-                print("cccc")
+
+            #如果已经过了更新时间 或者 本轮结束
+            if (last_update + self.interval < cur_time) or (len(self.peers) == 0) :
+                #print("cccc")
                 peers = await self.get_peers()
                 if not peers:
                     continue
@@ -112,19 +118,25 @@ class Tracker:
                 for peer in self.peers:
                     if i < len(self.unfinished_blocks):
                         index, offset, length = self.unfinished_blocks[i]
+                        print("request:", index, offset, length)
                         i += 1
-                        print(i)
+                        #print(i)
                         connection = Connection(str(peer[0]), peer[2], self.info_hash, self.torrent.gen_peer_id())
                         self.connections.append(connection)
                         task = asyncio.create_task(self.connections[-1].download_a_block(index, offset, length))
                         tasks.append(task)
-                print("start")
+                #print("start")
                 results = await asyncio.gather(*tasks)
-
+                #print("finish")
                 for i, block in enumerate(results):
                     if block:
-                        print("finished", block.index, block.offset)
-                        self.unfinished_blocks.remove((block.index, block.offset, block.length))
+                        print("finished", block.index, block.offset, block.length)
+                        try:
+                            self.unfinished_blocks.remove((block.index, block.offset, block.length))
+                        except:
+                            print("error", block.index, block.offset, block.length)
+                            return 0
+                self.peers = []
             else:
                 await asyncio.sleep(1000)
         
