@@ -1,7 +1,7 @@
 import random
 import string
 from hashlib import sha1
-from bencode import Parser 
+from bencode import Parser
 
 class Torrent:
     def __init__(self, path):
@@ -50,7 +50,7 @@ class Torrent:
         paras={}
 
         paras["announce"] = bytes.decode(self.announce)
-        paras["info_hash"] =sha1(self.parser.encode(self.info)).hexdigest()
+        paras["info_hash"] =sha1(self.parser.encode(self.info)).digest()
         paras["peer_id"] = self.gen_peer_id()
         paras["port"] = "6881"
         paras["uploaded"] = "0"
@@ -81,4 +81,6 @@ class Torrent:
 
 if __name__ == "__main__":
     torrent = Torrent('./test/ubuntu-20.10-desktop-amd64.iso.torrent')  
+    print(torrent.info.keys())
+
     torrent.gen_request_paras()
