@@ -98,6 +98,7 @@ class Tracker:
 
         #循环
         while True:
+            tasks = []
             #如果下载完，退出
             if len(self.unfinished_blocks) == 0:
                 break
@@ -133,9 +134,9 @@ class Tracker:
                         print("finished", block.index, block.offset, block.length)
                         try:
                             self.unfinished_blocks.remove((block.index, block.offset, block.length))
+                            print("removed",block.index, block.offset, block.length)
                         except:
                             print("error", block.index, block.offset, block.length)
-                            return 0
                 self.peers = []
             else:
                 await asyncio.sleep(1000)

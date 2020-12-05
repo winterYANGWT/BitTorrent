@@ -171,43 +171,45 @@ class Connection:
 
 
     async def download_a_block(self, index, offset, length):
-        #print("in download")
-        await self.handshake()
-        if self.handshake_sucess == 0:
-            return self.block
-        messages = []
-        message = StateMessage(INTERESTED)
-        await self.write(message.gen_string())
-        await asyncio.sleep(5)
-        message = await self.read_a_message()
-        while message != None and message.typeID != KEEPALIVE:
-            messages.append(message)
+        try:
+            #print("in download")
+            await self.handshake()
+            if self.handshake_sucess == 0:
+                return self.block
+            messages = []
+            message = StateMessage(INTERESTED)
+            await self.write(message.gen_string())
+            await asyncio.sleep(5)
             message = await self.read_a_message()
-        for message in messages:
-            #print("message:"+str(message.typeID))
-            self.handle_message(message)
-
-        if self.am_choking == 1:
-            return self.block
-        message = RequestMessage(REQUEST, index, offset, length)
-        await self.write(message.gen_string())
-    
-        for i in range(10):       
-            #print("123")
-            message = await self.read_a_message()
-            # if(message == None):
-            #     return self.block
-            #print("456")
-            while(message != None and self.download_sucess == False) :
-                #print("789")
-                #print("message123:",message.typeID)
+            while message != None and message.typeID != KEEPALIVE:
+                messages.append(message)
+                message = await self.read_a_message()
+            for message in messages:
+                #print("message:"+str(message.typeID))
                 self.handle_message(message)
-                if(message.typeID == PIECE):
-                    #print("piece")
-                    self.download_sucess = True
-                    return self.block
-                message = await self.read_a_message() 
-        return self.block
+
+            if self.am_choking == 1:
+                return self.block
+            message = RequestMessage(REQUEST, index, offset, length)
+            await self.write(message.gen_string())
+        
+            for i in range(10):       
+                #print("123")
+                message = await self.read_a_message()
+                # if(message == None):
+                #     return self.block
+                #print("456")
+                while(message != None and self.download_sucess == False) :
+                    #print("789")
+                    #print("message123:",message.typeID)
+                    self.handle_message(message)
+                    if(message.typeID == PIECE):
+                        #print("piece")
+                        self.download_sucess = True
+                        return self.block
+                    message = await self.read_a_message() 
+        except:
+            return self.block
 
     async def write(self, bytes_string):
         self.writer.write(bytes_string)
